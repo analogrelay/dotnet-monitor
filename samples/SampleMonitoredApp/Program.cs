@@ -40,7 +40,7 @@ namespace SampleMonitoredApp
         {
         }
 
-        [Event(1)]
+        [Event(1, Message = "My event with payload {0}")]
         public void MyEvent(int rando)
         {
             WriteEvent(1, rando);

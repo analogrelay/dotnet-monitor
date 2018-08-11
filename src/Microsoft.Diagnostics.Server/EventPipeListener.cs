@@ -48,10 +48,7 @@ namespace Microsoft.Diagnostics.Server
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {
-            var message = new EventWrittenMessage(
-                providerName: eventData.EventSource.Name,
-                eventId: eventData.EventId,
-                eventName: eventData.EventName);
+            var message = new EventWrittenMessage(eventData);
             var successful = _messages.Writer.TryWrite(message);
             Debug.Assert(successful, "Channel should be unbounded!");
         }

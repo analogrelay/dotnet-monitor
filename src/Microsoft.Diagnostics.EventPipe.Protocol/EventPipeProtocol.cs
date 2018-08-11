@@ -18,7 +18,7 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
         {
             if (input.PositionOf(RecordSeparator) is SequencePosition position)
             {
-                var buffer = input.Slice(input.Start, position);
+                ReadOnlySequence<byte> buffer = input.Slice(input.Start, position);
                 input = input.Slice(input.GetPosition(1, position));
 
                 message = ParseMessage(buffer);
@@ -36,7 +36,8 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
             var json = new JObject(
                 new JProperty("type", message.Type),
                 new JProperty("payload", JObject.FromObject(message)));
-            var bytes = Encoding.UTF8.GetBytes(json.ToString(Formatting.None));
+            var str = json.ToString(Formatting.None);
+            var bytes = Encoding.UTF8.GetBytes(str);
             writer.Write(bytes.AsSpan());
             writer.Write(RecordSeparatorMemory.Span);
         }
@@ -64,7 +65,7 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
                 }
             }
 
-            JObject json = JObject.Parse(str);
+            var json = JObject.Parse(str);
             var type = (MessageType)(int)json["type"];
 
             switch (type)

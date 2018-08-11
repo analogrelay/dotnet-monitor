@@ -46,7 +46,7 @@ namespace Microsoft.Diagnostics.Tools.Trace
 
             client.OnEventWritten += (evt) =>
             {
-                console.WriteLine($"{evt.ProviderName}/{evt.EventName}({evt.EventId})");
+                console.WriteLine($"{evt.ProviderName}/{evt.EventName}({evt.EventId}): {evt.Message}");
             };
 
             await client.ConnectAsync();
