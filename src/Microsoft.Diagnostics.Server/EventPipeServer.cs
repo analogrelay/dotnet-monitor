@@ -88,7 +88,17 @@ namespace Microsoft.Diagnostics.Server
 
         private Task DispatchMessageAsync(EventPipeMessage message)
         {
-            throw new NotImplementedException("We don't support any incoming messages yet!");
+            switch (message)
+            {
+                case EnableEventsMessage enableEventsMessage:
+                    foreach (var request in enableEventsMessage.Requests)
+                    {
+                        _listener.EnableEvents(request);
+                    }
+                    break;
+            }
+
+            return Task.CompletedTask;
         }
     }
 }

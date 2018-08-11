@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.EventPipe.Protocol;
 
@@ -13,9 +14,11 @@ namespace Microsoft.Diagnostics.Client
     {
         private readonly EndPoint _endPoint;
         private readonly TcpClient _client;
-        private readonly Channel<EventPipeMessage> _outgoingMessages = Channel.CreateUnbounded<EventPipeMessage>();
-        private readonly Channel<EventPipeMessage> _incomingMessages = Channel.CreateUnbounded<EventPipeMessage>();
+        private IDuplexPipe _pipe;
+        private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
 
+        public event Action<EventSourceCreatedMessage> OnEventSourceCreated;
+        public event Action<EventWrittenMessage> OnEventWritten;
         public DiagnosticsClient(EndPoint endPoint)
         {
             _endPoint = endPoint;
@@ -37,59 +40,24 @@ namespace Microsoft.Diagnostics.Client
             }
 
             // Start processing
-            var pipe = _client.GetStream().CreatePipe();
+            _pipe = _client.GetStream().CreatePipe();
 
-            _ = RunClientAsync(pipe);
+            _ = ReceiveLoop(_pipe.Input);
         }
 
-        public ValueTask<EventPipeMessage> ReceiveAsync(CancellationToken cancellationToken = default) => _incomingMessages.Reader.ReadAsync(cancellationToken);
-        public ValueTask SendAsync(EventPipeMessage message, CancellationToken cancellationToken = default) => _outgoingMessages.Writer.WriteAsync(message, cancellationToken);
-
-        private async Task RunClientAsync(IDuplexPipe pipe)
+        public async Task EnableEventsAsync(IEnumerable<EnableEventsRequest> providers)
         {
-            var receiver = ReceiveLoop(pipe.Input);
-            var sender = SendLoop(pipe.Output, _outgoingMessages.Reader);
-
-            var trigger = await Task.WhenAny(receiver, sender);
-
-            if (ReferenceEquals(trigger, receiver))
-            {
-                _outgoingMessages.Writer.TryComplete();
-                await sender;
-            }
-            else
-            {
-                pipe.Input.CancelPendingRead();
-                await receiver;
-            }
-        }
-
-        private async Task SendLoop(PipeWriter output, ChannelReader<EventPipeMessage> messages)
-        {
+            await _writeLock.WaitAsync();
             try
             {
-                while (await messages.WaitToReadAsync())
-                {
-                    while (messages.TryRead(out var message))
-                    {
-                        throw new NotImplementedException("Can't send messages yet!");
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // No-op
-            }
-            catch (Exception ex)
-            {
-                output.Complete(ex);
+                EventPipeProtocol.WriteMessage(new EnableEventsMessage(providers.ToList()), _pipe.Output);
+                await _pipe.Output.FlushAsync();
             }
             finally
             {
-                output.Complete();
+                _writeLock.Release();
             }
         }
-
         private async Task ReceiveLoop(PipeReader reader)
         {
             try
@@ -108,7 +76,17 @@ namespace Microsoft.Diagnostics.Client
 
                         while (EventPipeProtocol.TryParseMessage(ref buffer, out var message))
                         {
-                            await _incomingMessages.Writer.WriteAsync(message);
+                            switch (message)
+                            {
+                                case EventSourceCreatedMessage eventSourceCreatedMessage:
+                                    _ = Task.Run(() => OnEventSourceCreated?.Invoke(eventSourceCreatedMessage));
+                                    break;
+                                case EventWrittenMessage eventWrittenMessage:
+                                    _ = Task.Run(() => OnEventWritten?.Invoke(eventWrittenMessage));
+                                    break;
+                                default:
+                                    throw new NotSupportedException($"Unsupported message type: {message.GetType().FullName}");
+                            }
                         }
 
                         if (result.IsCompleted)

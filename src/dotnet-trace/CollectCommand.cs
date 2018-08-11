@@ -1,17 +1,23 @@
+using System.Collections.Generic;
+using System.Diagnostics.Tracing;
+using System.Linq;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Diagnostics.Client;
+using Microsoft.Diagnostics.EventPipe.Protocol;
 
 namespace Microsoft.Diagnostics.Tools.Trace
 {
-    [Command(Name = Name, Description = "Lists Event Sources that exist in the target process, and lists new ones as they are created.")]
-    internal class SourcesCommand
+    [Command(Name = Name, Description = "Collects events from the target process")]
+    public class CollectCommand
     {
-        public const string Name = "sources";
+        public const string Name = "collect";
 
         [Option("-s|--server <SERVER>", Description = "The server to connect to, in the form of '<port>' (for localhost) or '<host>:<port>'")]
         public string Target { get; }
 
+        [Argument(0, "<PROVIDERS>", "The providers to collect from")]
+        public IList<string> Providers { get; }
         public async Task<int> OnExecuteAsync(CommandLineApplication app, IConsole console)
         {
             var cancellationToken = console.GetCtrlCToken();
@@ -28,16 +34,24 @@ namespace Microsoft.Diagnostics.Tools.Trace
                 return 1;
             }
 
+            if (Providers.Count == 0)
+            {
+                console.Error.WriteLine("No providers were listed");
+                return 1;
+            }
+
             var client = new DiagnosticsClient(endPoint);
 
             console.WriteLine("Connecting to application...");
 
-            client.OnEventSourceCreated += (eventSource) =>
+            client.OnEventWritten += (evt) =>
             {
-                console.WriteLine($"* {eventSource.Name} [{eventSource.Guid}] (settings: {eventSource.Settings})");
+                console.WriteLine($"{evt.ProviderName}/{evt.EventName}({evt.EventId})");
             };
 
             await client.ConnectAsync();
+
+            await client.EnableEventsAsync(Providers.Select(p => new EnableEventsRequest(p, EventLevel.Verbose, EventKeywords.All)));
 
             console.WriteLine("Connected, press Ctrl-C to terminate...");
             await cancellationToken.WaitForCancellationAsync();

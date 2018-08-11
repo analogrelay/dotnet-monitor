@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Threading.Channels;
@@ -14,6 +15,10 @@ namespace Microsoft.Diagnostics.Server
         // This also means we can't make the Channel settings here configurable :(
         private readonly Channel<EventPipeMessage> _messages = Channel.CreateUnbounded<EventPipeMessage>();
 
+        private readonly object _lock = new object();
+        private readonly Dictionary<string, EventSource> _sources = new Dictionary<string, EventSource>();
+        private readonly Dictionary<string, EnableEventsRequest> _queuedRequests = new Dictionary<string, EnableEventsRequest>();
+
         public ChannelReader<EventPipeMessage> Messages => _messages.Reader;
 
         public EventPipeListener()
@@ -27,10 +32,51 @@ namespace Microsoft.Diagnostics.Server
             var message = new EventSourceCreatedMessage(eventSource.Name, eventSource.Guid, eventSource.Settings);
             var successful = _messages.Writer.TryWrite(message);
             Debug.Assert(successful, "Channel should be unbounded!");
+
+            lock (_lock)
+            {
+                _sources.Add(eventSource.Name, eventSource);
+
+                // Process any pending enable requests
+                if (_queuedRequests.TryGetValue(eventSource.Name, out var enableEventsRequest))
+                {
+                    EnableEvents(eventSource, enableEventsRequest);
+                    _queuedRequests.Remove(eventSource.Name);
+                }
+            }
         }
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {
+            var message = new EventWrittenMessage(
+                providerName: eventData.EventSource.Name,
+                eventId: eventData.EventId,
+                eventName: eventData.EventName);
+            var successful = _messages.Writer.TryWrite(message);
+            Debug.Assert(successful, "Channel should be unbounded!");
+        }
+
+        public void EnableEvents(EnableEventsRequest request)
+        {
+            lock (_lock)
+            {
+                if (_sources.TryGetValue(request.Provider, out var eventSource))
+                {
+                    // The source has already been created, just enable it
+                    EnableEvents(eventSource, request);
+                }
+                else
+                {
+                    // The source has not yet been created, queue the request
+                    // TODO: Can't handle multiple requests for the same provider!
+                    _queuedRequests.Add(request.Provider, request);
+                }
+            }
+        }
+
+        private void EnableEvents(EventSource eventSource, EnableEventsRequest request)
+        {
+            EnableEvents(eventSource, request.Level, request.Keywords);
         }
     }
 }

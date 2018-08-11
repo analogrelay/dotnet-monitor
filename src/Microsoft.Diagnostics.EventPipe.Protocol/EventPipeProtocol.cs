@@ -33,18 +33,9 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
 
         public static void WriteMessage(EventPipeMessage message, PipeWriter writer)
         {
-            JObject json;
-            switch (message)
-            {
-                case EventSourceCreatedMessage eventSourceCreatedMessage:
-                    json = new JObject(
-                        new JProperty("type", MessageType.EventSourceCreated),
-                        new JProperty("payload", JObject.FromObject(eventSourceCreatedMessage)));
-                    break;
-                default:
-                    throw new NotSupportedException($"Unknown message type: {message.GetType().FullName}");
-            }
-
+            var json = new JObject(
+                new JProperty("type", message.Type),
+                new JProperty("payload", JObject.FromObject(message)));
             var bytes = Encoding.UTF8.GetBytes(json.ToString(Formatting.None));
             writer.Write(bytes.AsSpan());
             writer.Write(RecordSeparatorMemory.Span);
@@ -79,6 +70,8 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
             switch (type)
             {
                 case MessageType.EventSourceCreated: return json["payload"].ToObject<EventSourceCreatedMessage>();
+                case MessageType.EnableEvents: return json["payload"].ToObject<EnableEventsMessage>();
+                case MessageType.EventWritten: return json["payload"].ToObject<EventWrittenMessage>();
                 default: throw new NotSupportedException($"Unknown message type: {type}");
             }
         }
