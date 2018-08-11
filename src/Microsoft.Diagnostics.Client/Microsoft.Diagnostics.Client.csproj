@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Common\AwaitableThreadPool.cs" Link="AwaitableThreadPool.cs" />
+    <Compile Include="..\Common\DuplexPipe.cs" Link="DuplexPipe.cs" />
+    <Compile Include="..\Common\NetworkStreamExtensions.cs" Link="NetworkStreamExtensions.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Diagnostics.EventPipe.Protocol\Microsoft.Diagnostics.EventPipe.Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Threading.Channels" Version="4.5.0" />
+  </ItemGroup>
+
+</Project>
