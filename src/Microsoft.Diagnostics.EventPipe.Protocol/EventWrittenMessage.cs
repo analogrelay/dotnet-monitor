@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
-using Newtonsoft.Json;
 
 namespace Microsoft.Diagnostics.EventPipe.Protocol
 {
@@ -9,46 +8,52 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
     {
         public override MessageType Type => MessageType.EventWritten;
 
-        public string ProviderName { get; }
-        public int EventId { get; }
-        public string EventName { get; }
-        public EventKeywords Keywords { get; }
-        public EventLevel Level { get; }
-        public string Message { get; }
-        public EventOpcode Opcode { get; }
-        public Guid RelatedActivityId { get; }
-        public EventTags Tags { get; }
-        public EventTask Task { get; }
-        public byte Version { get; }
-        public Guid ActivityId { get; }
-        public EventChannel Channel { get; }
-        public IDictionary<string, object> Payload { get; } = new Dictionary<string, object>();
+        public string ProviderName { get; set; }
+        public int EventId { get; set; }
+        public string EventName { get; set; }
+        public EventKeywords Keywords { get; set; }
+        public EventLevel Level { get; set; }
+        public string Message { get; set; }
+        public EventOpcode Opcode { get; set; }
+        public Guid RelatedActivityId { get; set; }
+        public EventTags Tags { get; set; }
+        public EventTask Task { get; set; }
+        public byte Version { get; set; }
+        public Guid ActivityId { get; set; }
+        public EventChannel Channel { get; set; }
+        public IList<string> PayloadNames { get; } = new List<string>();
+        public IList<object> Payload { get; } = new List<object>();
 
-        [JsonConstructor]
-        private EventWrittenMessage()
+        public static EventWrittenMessage Create(EventWrittenEventArgs args)
         {
-        }
-
-        public EventWrittenMessage(EventWrittenEventArgs args)
-        {
-            ActivityId = args.ActivityId;
-            Channel = args.Channel;
-            EventId = args.EventId;
-            EventName = args.EventName;
-            ProviderName = args.EventSource.Name;
-            Keywords = args.Keywords;
-            Level = args.Level;
-            Message = args.Message;
-            Opcode = args.Opcode;
-            RelatedActivityId = args.RelatedActivityId;
-            Tags = args.Tags;
-            Task = args.Task;
-            Version = args.Version;
-
-            for (var i = 0; i < args.PayloadNames.Count; i++)
+            var message = new EventWrittenMessage()
             {
-                Payload[args.PayloadNames[i]] = args.Payload[i];
+                ActivityId = args.ActivityId,
+                Channel = args.Channel,
+                EventId = args.EventId,
+                EventName = args.EventName,
+                ProviderName = args.EventSource.Name,
+                Keywords = args.Keywords,
+                Level = args.Level,
+                Message = args.Message,
+                Opcode = args.Opcode,
+                RelatedActivityId = args.RelatedActivityId,
+                Tags = args.Tags,
+                Task = args.Task,
+                Version = args.Version,
+            };
+
+            foreach(var name in args.PayloadNames)
+            {
+                message.PayloadNames.Add(name);
             }
+
+            foreach(var value in args.Payload)
+            {
+                message.Payload.Add(value);
+            }
+
+            return message;
         }
     }
 }

@@ -4,11 +4,15 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
 {
     public class EnableEventsRequest
     {
-        public string Provider { get; }
-        public EventLevel Level { get; }
-        public EventKeywords Keywords { get; }
+        public string Provider { get; set; }
+        public EventLevel Level { get; set; }
+        public EventKeywords Keywords { get; set; }
 
-        public EnableEventsRequest(string provider, EventLevel level, EventKeywords keywords)
+        public EnableEventsRequest()
+        {
+        }
+
+        public EnableEventsRequest(string provider, EventLevel level, EventKeywords keywords) : this()
         {
             Provider = provider;
             Level = level;

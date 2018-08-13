@@ -20,7 +20,7 @@ To summarize: The protocol should be trivial to write, but can be complicated to
 Just a brain dump of some ideas:
 
 * Binary format
-* Be careful with length prefixes. If we require a length prefix over the whole message, the message has to be buffered before it can be flushed out to the socket. Better would be the length prefix smaller chunks.
-* In fact, it may be desirable to use delimiters and escaping instead. Delimiters generally mean the receiver has to buffer more, but that's OK here because the monitor has less pressure to be time-/space-efficient.
+* Be careful with length prefixes. If we require a length prefix over the whole message, the message has to be buffered before it can be flushed out to the socket. Better would be to length-prefix smaller chunks.
+* In fact, it may be desirable to use delimiters and escaping instead. Delimiters generally mean the receiver has to buffer more, but that's OK here because the Monitor has less pressure to be time-/space-efficient.
 * Unlike most network protocols, we should probably encode strings in UTF-16 since that makes it easier to blit the native .NET string type out to the network.
 * Fixed-length integers are probably better than variable-length integers.

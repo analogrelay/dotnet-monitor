@@ -5,13 +5,17 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
 {
     public class EventSourceCreatedMessage : EventPipeMessage
     {
-        public string Name { get; }
-        public Guid Guid { get; }
-        public EventSourceSettings Settings { get; }
+        public string Name { get; set; }
+        public Guid Guid { get; set; }
+        public EventSourceSettings Settings { get; set; }
 
         public override MessageType Type => MessageType.EventSourceCreated;
 
-        public EventSourceCreatedMessage(string name, Guid guid, EventSourceSettings settings)
+        public EventSourceCreatedMessage()
+        {
+        }
+
+        public EventSourceCreatedMessage(string name, Guid guid, EventSourceSettings settings) : this()
         {
             Name = name;
             Guid = guid;

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Diagnostics.Client;
@@ -13,25 +14,38 @@ namespace Microsoft.Diagnostics.Tools.Trace
     {
         public const string Name = "collect";
 
-        [Option("-s|--server <SERVER>", Description = "The server to connect to, in the form of '<port>' (for localhost) or '<host>:<port>'")]
+        [Option("-s|--server <SERVER>", Description = "The server to connect to, in the form of '<port>' (for localhost) or '<host>:<port>'.")]
         public string Target { get; }
 
-        [Argument(0, "<PROVIDERS>", "The providers to collect from")]
+        [Option("-p|--process <PID>", Description = "The process ID of the process to connect to.")]
+        public int? ProcessId { get; }
+
+        [Argument(0, "<PROVIDERS>", "The providers to collect from.")]
         public IList<string> Providers { get; }
+
         public async Task<int> OnExecuteAsync(CommandLineApplication app, IConsole console)
         {
-            var cancellationToken = console.GetCtrlCToken();
+            System.Threading.CancellationToken cancellationToken = console.GetCtrlCToken();
 
-            if (string.IsNullOrEmpty(Target))
+            EndPoint endPoint;
+            if (ProcessId is int pid)
             {
-                console.Error.WriteLine("Missing required option: --server");
-                return 1;
+                ProcessRegistration reg = await ProcessLocator.GetRegistrationAsync(pid);
+                endPoint = new IPEndPoint(IPAddress.Loopback, reg.DiagnosticsPort);
             }
-
-            if (!EndPointParser.TryParseEndpoint(Target, out var endPoint))
+            else
             {
-                console.Error.WriteLine($"Invalid server value: {Target}");
-                return 1;
+                if (string.IsNullOrEmpty(Target))
+                {
+                    console.Error.WriteLine("Missing required option: --server");
+                    return 1;
+                }
+
+                if (!EndPointParser.TryParseEndpoint(Target, out endPoint))
+                {
+                    console.Error.WriteLine($"Invalid server value: {Target}");
+                    return 1;
+                }
             }
 
             if (Providers.Count == 0)
@@ -46,7 +60,8 @@ namespace Microsoft.Diagnostics.Tools.Trace
 
             client.OnEventWritten += (evt) =>
             {
-                console.WriteLine($"{evt.ProviderName}/{evt.EventName}({evt.EventId}): {evt.Message}");
+                var formattedMessage = string.Format(evt.Message, evt.Payload.ToArray());
+                console.WriteLine($"{evt.ProviderName}/{evt.EventName}({evt.EventId}): {formattedMessage}");
             };
 
             await client.ConnectAsync();
