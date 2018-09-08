@@ -8,7 +8,6 @@ namespace Microsoft.Diagnostics.Tools.Trace
     [Command(Name = "dotnet-trace", Description = "Collects event traces from .NET processes")]
     [Subcommand(SourcesCommand.Name, typeof(SourcesCommand))]
     [Subcommand(CollectCommand.Name, typeof(CollectCommand))]
-    [Subcommand(ProcessesCommand.Name, typeof(ProcessesCommand))]
     internal class Program
     {
         private static int Main(string[] args)

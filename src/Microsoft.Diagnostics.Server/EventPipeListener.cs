@@ -1,8 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Threading.Channels;
-using Microsoft.Diagnostics.EventPipe.Protocol;
+using Microsoft.Diagnostics.Transport.Protocol;
 
 namespace Microsoft.Diagnostics.Server
 {

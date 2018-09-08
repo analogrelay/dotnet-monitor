@@ -8,6 +8,7 @@ namespace Microsoft.Diagnostics.Tools.Trace
 {
     public static class CancellationTokenExtensions
     {
+        public static Task WaitForCancellationAsync(this CancellationTokenSource cancellationTokenSource) => cancellationTokenSource.Token.WaitForCancellationAsync();
         public static Task WaitForCancellationAsync(this CancellationToken cancellationToken)
         {
             var tcs = new TaskCompletionSource<object>();

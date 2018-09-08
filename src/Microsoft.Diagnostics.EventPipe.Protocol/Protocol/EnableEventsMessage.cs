@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Microsoft.Diagnostics.EventPipe.Protocol
+namespace Microsoft.Diagnostics.Transport.Protocol
 {
     public class EnableEventsMessage : EventPipeMessage
     {

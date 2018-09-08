@@ -16,7 +16,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dotnet-trace", "src\dotnet-
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleMonitoredApp", "samples\SampleMonitoredApp\SampleMonitoredApp.csproj", "{2908A261-3FC7-45A2-BA61-192318E9179A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Diagnostics.EventPipe.Protocol", "src\Microsoft.Diagnostics.EventPipe.Protocol\Microsoft.Diagnostics.EventPipe.Protocol.csproj", "{A5C10E59-5B55-4445-A939-A0AA0E156EC6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Diagnostics.Transport", "src\Microsoft.Diagnostics.EventPipe.Protocol\Microsoft.Diagnostics.Transport.csproj", "{A5C10E59-5B55-4445-A939-A0AA0E156EC6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Diagnostics.Server", "src\Microsoft.Diagnostics.Server\Microsoft.Diagnostics.Server.csproj", "{B140A95D-4488-4AD9-9F29-AD321B558D01}"
 EndProject

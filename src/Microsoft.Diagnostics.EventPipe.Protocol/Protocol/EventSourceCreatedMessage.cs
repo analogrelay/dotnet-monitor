@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics.Tracing;
 
-namespace Microsoft.Diagnostics.EventPipe.Protocol
+namespace Microsoft.Diagnostics.Transport.Protocol
 {
     public class EventSourceCreatedMessage : EventPipeMessage
     {

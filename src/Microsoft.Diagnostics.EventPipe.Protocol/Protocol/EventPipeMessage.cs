@@ -1,4 +1,4 @@
-namespace Microsoft.Diagnostics.EventPipe.Protocol
+namespace Microsoft.Diagnostics.Transport.Protocol
 {
     public abstract class EventPipeMessage
     {

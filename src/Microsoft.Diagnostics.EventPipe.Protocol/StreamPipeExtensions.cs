@@ -1,26 +1,46 @@
+using System;
 using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Diagnostics.Transport;
+
+namespace System.IO.Pipes
+{
+    public static class PipeStreamPipeExtensions
+    {
+        public static IDuplexPipe CreatePipe(this PipeStream stream) => StreamPipeExtensions.CreatePipeCore(stream, s => s.WaitForPipeDrain());
+    }
+}
 
 namespace System.Net.Sockets
 {
-    public static class NetworkStreamExtensions
+    public static class NetworkStreamPipeExtensions
     {
-        public static IDuplexPipe CreatePipe(this NetworkStream stream)
+        public static IDuplexPipe CreatePipe(this NetworkStream stream) => StreamPipeExtensions.CreatePipeCore(stream);
+    }
+}
+
+namespace Microsoft.Diagnostics.Transport
+{
+    // This is internal because we don't want to attach a global extension method on Stream
+    internal static class StreamPipeExtensions
+    {
+        public static IDuplexPipe CreatePipeCore<T>(T stream, Action<T> onFlush = null) where T: Stream
         {
             var appToNetwork = new Pipe();
             var networkToApp = new Pipe();
 
             var cts = new CancellationTokenSource();
             _ = ReceiveLoop(networkToApp, stream, cts);
-            _ = SendLoop(appToNetwork, stream, cts);
+            _ = SendLoop(appToNetwork, stream, cts, onFlush);
 
             return new DuplexPipe(networkToApp.Reader, appToNetwork.Writer);
         }
 
-        private static async Task SendLoop(Pipe pipe, NetworkStream stream, CancellationTokenSource cts)
+        private static async Task SendLoop<T>(Pipe pipe, T stream, CancellationTokenSource cts, Action<T> onFlush) where T: Stream
         {
             try
             {
@@ -42,6 +62,8 @@ namespace System.Net.Sockets
                         {
                             // TODO: Being lazy
                             await stream.WriteAsync(buffer.ToArray(), 0, (int)buffer.Length);
+                            await stream.FlushAsync();
+                            onFlush?.Invoke(stream);
                             consumed = buffer.End;
                         }
                     }
@@ -60,6 +82,10 @@ namespace System.Net.Sockets
             {
                 // No-op, we're shutting down.
             }
+            catch(Exception ex)
+            {
+                pipe.Reader.Complete(ex);
+            }
             finally
             {
                 // Shut down the other loop if it's running.
@@ -68,7 +94,7 @@ namespace System.Net.Sockets
             }
         }
 
-        private static async Task ReceiveLoop(Pipe pipe, NetworkStream stream, CancellationTokenSource cts)
+        private static async Task ReceiveLoop<T>(Pipe pipe, T stream, CancellationTokenSource cts) where T: Stream
         {
             try
             {
@@ -76,7 +102,7 @@ namespace System.Net.Sockets
                 {
                     // Get a buffer from the pipe
                     var buffer = pipe.Writer.GetMemory();
-                    if(!MemoryMarshal.TryGetArray<byte>(buffer, out var arraySegment))
+                    if (!MemoryMarshal.TryGetArray<byte>(buffer, out var arraySegment))
                     {
                         throw new NotSupportedException("Only managed buffers are supported!");
                     }
@@ -113,6 +139,9 @@ namespace System.Net.Sockets
                 // Shut down the other loop
                 cts.Cancel();
                 pipe.Reader.CancelPendingRead();
+
+                // Dispose the stream
+                stream.Dispose();
             }
         }
     }

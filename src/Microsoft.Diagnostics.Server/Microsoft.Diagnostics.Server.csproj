@@ -5,17 +5,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="..\Common\DuplexPipe.cs" Link="DuplexPipe.cs" />
-        <Compile Include="..\Common\NetworkStreamExtensions.cs" Link="NetworkStreamExtensions.cs" />
-    </ItemGroup>
-
-    <ItemGroup>
         <PackageReference Include="System.IO.Pipelines" Version="4.5.0" />
         <PackageReference Include="System.Threading.Channels" Version="4.5.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Microsoft.Diagnostics.EventPipe.Protocol\Microsoft.Diagnostics.EventPipe.Protocol.csproj" />
+      <ProjectReference Include="..\Microsoft.Diagnostics.EventPipe.Protocol\Microsoft.Diagnostics.Transport.csproj" />
     </ItemGroup>
 
 </Project>

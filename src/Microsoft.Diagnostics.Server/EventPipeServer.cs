@@ -2,7 +2,7 @@ using System;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Diagnostics.EventPipe.Protocol;
+using Microsoft.Diagnostics.Transport.Protocol;
 
 namespace Microsoft.Diagnostics.Server
 {
@@ -17,11 +17,12 @@ namespace Microsoft.Diagnostics.Server
             _listener = new EventPipeListener();
         }
 
-        public async Task RunAsync()
+        public async Task RunAsync(CancellationToken cancellationToken)
         {
             var cts = new CancellationTokenSource();
+            var linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellationToken);
             var reader = ReadLoop(_pipe.Input);
-            var writer = WriteLoop(_pipe.Output, cts.Token);
+            var writer = WriteLoop(_pipe.Output, linkedToken.Token);
 
             var trigger = await Task.WhenAny(reader, writer);
 
@@ -67,7 +68,7 @@ namespace Microsoft.Diagnostics.Server
                 {
                     if (result.IsCanceled)
                     {
-                        break;
+                        return;
                     }
 
                     while (EventPipeProtocol.TryParseMessage(ref buffer, out var message))
@@ -76,7 +77,7 @@ namespace Microsoft.Diagnostics.Server
                     }
                     if (result.IsCompleted)
                     {
-                        break;
+                        return;
                     }
                 }
                 finally
@@ -93,6 +94,7 @@ namespace Microsoft.Diagnostics.Server
                 case EnableEventsMessage enableEventsMessage:
                     foreach (var request in enableEventsMessage.Requests)
                     {
+                        Console.WriteLine($"Enabling {request.Provider}");
                         _listener.EnableEvents(request);
                     }
                     break;

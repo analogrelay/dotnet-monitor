@@ -5,7 +5,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.Diagnostics.EventPipe.Protocol
+namespace Microsoft.Diagnostics.Transport.Protocol
 {
     public static class EventPipeProtocol
     {
@@ -13,12 +13,13 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
 
         private const byte RecordSeparator = 0x1E;
         private static readonly ReadOnlyMemory<byte> RecordSeparatorMemory = new byte[] { RecordSeparator };
+        private static readonly ReadOnlyMemory<byte> SerializedPing = PreserializePing();
 
         public static bool TryParseMessage(ref ReadOnlySequence<byte> input, out EventPipeMessage message)
         {
             if (input.PositionOf(RecordSeparator) is SequencePosition position)
             {
-                ReadOnlySequence<byte> buffer = input.Slice(input.Start, position);
+                var buffer = input.Slice(input.Start, position);
                 input = input.Slice(input.GetPosition(1, position));
 
                 message = ParseMessage(buffer);
@@ -33,13 +34,32 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
 
         public static void WriteMessage(EventPipeMessage message, PipeWriter writer)
         {
+            if (ReferenceEquals(message, PingMessage.Instance))
+            {
+                writer.Write(SerializedPing.Span);
+            }
+            else
+            {
+                var json = new JObject(
+                    new JProperty("type", message.Type),
+                    new JProperty("payload", JObject.FromObject(message)));
+                var str = json.ToString(Formatting.None);
+                var bytes = Encoding.UTF8.GetBytes(str);
+                writer.Write(bytes.AsSpan());
+                writer.Write(RecordSeparatorMemory.Span);
+            }
+        }
+
+        private static ReadOnlyMemory<byte> PreserializePing()
+        {
             var json = new JObject(
-                new JProperty("type", message.Type),
-                new JProperty("payload", JObject.FromObject(message)));
+                new JProperty("type", MessageType.Ping));
             var str = json.ToString(Formatting.None);
-            var bytes = Encoding.UTF8.GetBytes(str);
-            writer.Write(bytes.AsSpan());
-            writer.Write(RecordSeparatorMemory.Span);
+            var byteLen = Encoding.UTF8.GetByteCount(str);
+            var bytes = new byte[byteLen + RecordSeparatorMemory.Length];
+            Encoding.UTF8.GetBytes(str, 0, str.Length, bytes, 0);
+            RecordSeparatorMemory.CopyTo(bytes.AsMemory(byteLen));
+            return bytes;
         }
 
         private static EventPipeMessage ParseMessage(ReadOnlySequence<byte> input)
@@ -70,6 +90,7 @@ namespace Microsoft.Diagnostics.EventPipe.Protocol
 
             switch (type)
             {
+                case MessageType.Ping: return PingMessage.Instance;
                 case MessageType.EventSourceCreated: return json["payload"].ToObject<EventSourceCreatedMessage>();
                 case MessageType.EnableEvents: return json["payload"].ToObject<EnableEventsMessage>();
                 case MessageType.EventWritten: return json["payload"].ToObject<EventWrittenMessage>();
