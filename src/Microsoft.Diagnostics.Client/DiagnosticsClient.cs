@@ -32,6 +32,10 @@ namespace Microsoft.Diagnostics.Client
         public event Action<EventWrittenMessage> OnEventWritten;
         public event Action<Exception> Disconnected;
 
+        public DiagnosticsClient(string url) : this(new Uri(url))
+        {
+        }
+
         public DiagnosticsClient(Uri uri)
         {
             _transport = EventPipeTransport.Create(uri).CreateClient();
@@ -113,6 +117,11 @@ namespace Microsoft.Diagnostics.Client
                                     }
                                     else
                                     {
+                                        if (eventWrittenMessage.Message != null && eventWrittenMessage.Payload.Count > 0)
+                                        {
+                                            // TODO: This is sketchy.
+                                            eventWrittenMessage.Message = string.Format(eventWrittenMessage.Message, eventWrittenMessage.Payload.ToArray());
+                                        }
                                         _ = Task.Run(() => OnEventWritten?.Invoke(eventWrittenMessage));
                                     }
                                     break;
