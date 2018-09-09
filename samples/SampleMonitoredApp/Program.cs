@@ -32,6 +32,7 @@ namespace SampleMonitoredApp
             Console.WriteLine("Press G to force a GC.");
             Console.WriteLine("Press T to spawn parallel tasks.");
             Console.WriteLine("Press L to log a Microsoft.Extensions.Logging message to 'SampleMonitoredApp.Program'.");
+            Console.WriteLine("Press E to write a random value to an EventSource/EventCounter.");
 
             while (true)
             {
@@ -52,7 +53,10 @@ namespace SampleMonitoredApp
                         SpawnTasks();
                         break;
                     case ConsoleKey.L:
-                        logger.Log(LogLevel.Information, new EventId(42, "SampleEvent"), "This is a sample event with an argument: {theArgument}", 1);
+                        logger.Log(LogLevel.Information, new EventId(42, "SampleEvent"), "This is a sample event with an argument: {rando}", _rando.Next(0, 100));
+                        break;
+                    case ConsoleKey.E:
+                        SampleEventSource.Log.MyEvent(_rando.Next(0, 100));
                         break;
                 }
             }
@@ -109,15 +113,18 @@ namespace SampleMonitoredApp
     public class SampleEventSource : EventSource
     {
         public static readonly SampleEventSource Log = new SampleEventSource();
+        private readonly EventCounter _sampleCounter;
 
         private SampleEventSource()
         {
+            _sampleCounter = new EventCounter("SampleCounter", this);
         }
 
         [Event(1, Message = "My event with payload {0}")]
         public void MyEvent(int rando)
         {
             WriteEvent(1, rando);
+            _sampleCounter.WriteMetric(rando);
         }
     }
 }

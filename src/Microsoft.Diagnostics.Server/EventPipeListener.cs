@@ -74,7 +74,7 @@ namespace Microsoft.Diagnostics.Server
 
         private void EnableEvents(EventSource eventSource, EnableEventsRequest request)
         {
-            EnableEvents(eventSource, request.Level, request.Keywords);
+            EnableEvents(eventSource, request.Level, request.Keywords, request.Arguments);
         }
     }
 }

@@ -94,7 +94,6 @@ namespace Microsoft.Diagnostics.Server
                 case EnableEventsMessage enableEventsMessage:
                     foreach (var request in enableEventsMessage.Requests)
                     {
-                        Console.WriteLine($"Enabling {request.Provider}");
                         _listener.EnableEvents(request);
                     }
                     break;

@@ -28,6 +28,7 @@ namespace Microsoft.Diagnostics.Client
         private readonly EventPipeClientTransport _transport;
 
         public event Action<EventSourceCreatedMessage> OnEventSourceCreated;
+        public event Action<EventCounterState> OnEventCounterUpdated;
         public event Action<EventWrittenMessage> OnEventWritten;
         public event Action<Exception> Disconnected;
 
@@ -45,24 +46,6 @@ namespace Microsoft.Diagnostics.Client
             _ = ReceiveLoop(_pipe.Input);
         }
 
-        public async Task EnableMicrosoftExtensionsLoggingAsync()
-        {
-            await _writeLock.WaitAsync();
-            try
-            {
-                EventPipeProtocol.WriteMessage(
-                    new EnableEventsMessage(new[] {
-                        new EnableEventsRequest("Microsoft-Extensions-Logging", EventLevel.Verbose, (EventKeywords)2),
-                    }),
-                    _pipe.Output);
-                await _pipe.Output.FlushAsync();
-            }
-            finally
-            {
-                _writeLock.Release();
-            }
-        }
-
         public async Task EnableEventsAsync(IEnumerable<EnableEventsRequest> requests)
         {
             await _writeLock.WaitAsync();
@@ -76,6 +59,25 @@ namespace Microsoft.Diagnostics.Client
                 _writeLock.Release();
             }
         }
+
+        public Task EnableCountersAsync(IEnumerable<string> counters)
+        {
+            var requests = counters.Select(CreateCounterRequest);
+            return EnableEventsAsync(requests);
+        }
+
+        public Task EnableLoggersAsync(IEnumerable<string> loggers)
+        {
+            var request = new EnableEventsRequest(
+                provider: "Microsoft-Extensions-Logging",
+                level: EventLevel.Verbose,
+                keywords: (EventKeywords)2,
+                arguments: new Dictionary<string, string>() {
+                    {"FilterSpecs", GenerateFilterSpec(loggers)}
+                });
+            return EnableEventsAsync(new EnableEventsRequest[] { request });
+        }
+
         private async Task ReceiveLoop(PipeReader reader)
         {
             Exception shutdownEx = null;
@@ -103,9 +105,16 @@ namespace Microsoft.Diagnostics.Client
                                 case EventWrittenMessage eventWrittenMessage:
                                     if (eventWrittenMessage.ProviderName.Equals("Microsoft-Extensions-Logging") && eventWrittenMessage.EventId == 2)
                                     {
-                                        eventWrittenMessage = ProcessMelMessage(eventWrittenMessage);
+                                        HandleLoggerMessage(eventWrittenMessage);
                                     }
-                                    _ = Task.Run(() => OnEventWritten?.Invoke(eventWrittenMessage));
+                                    else if (eventWrittenMessage.EventId == -1 && eventWrittenMessage.EventName.Equals("EventCounters"))
+                                    {
+                                        HandleEventCounter(eventWrittenMessage);
+                                    }
+                                    else
+                                    {
+                                        _ = Task.Run(() => OnEventWritten?.Invoke(eventWrittenMessage));
+                                    }
                                     break;
                                 default:
                                     throw new NotSupportedException($"Unsupported message type: {message.GetType().FullName}");
@@ -135,7 +144,29 @@ namespace Microsoft.Diagnostics.Client
             }
         }
 
-        private EventWrittenMessage ProcessMelMessage(EventWrittenMessage inputMessage)
+        private void HandleEventCounter(EventWrittenMessage eventWrittenMessage)
+        {
+            var payloadIndex = eventWrittenMessage.PayloadNames.IndexOf("Payload");
+            if (payloadIndex == -1)
+            {
+                // No-op, something is wrong.
+                return;
+            }
+
+            var payload = (JObject)eventWrittenMessage.Payload[payloadIndex];
+            var eventCounterState = new EventCounterState(
+                eventWrittenMessage.ProviderName,
+                payload.Value<string>("Name"),
+                payload.Value<double>("Mean"),
+                payload.Value<double>("StandardDeviation"),
+                payload.Value<double>("Count"),
+                payload.Value<double>("Min"),
+                payload.Value<double>("Max"),
+                TimeSpan.FromSeconds(payload.Value<double>("IntervalSec")));
+            _ = Task.Run(() => OnEventCounterUpdated?.Invoke(eventCounterState));
+        }
+
+        private void HandleLoggerMessage(EventWrittenMessage inputMessage)
         {
             var payloadDict = Enumerable.Range(0, inputMessage.Payload.Count).ToDictionary(
                 i => inputMessage.PayloadNames[i],
@@ -159,6 +190,8 @@ namespace Microsoft.Diagnostics.Client
                 Task = inputMessage.Task,
             };
 
+            string messageFormat = null;
+            var messageArgs = new Dictionary<string, string>();
             foreach (var arg in args)
             {
                 var obj = (JObject)arg;
@@ -166,16 +199,22 @@ namespace Microsoft.Diagnostics.Client
                 var value = obj.Value<string>("Value");
                 if (key.Equals("{OriginalFormat}"))
                 {
-                    outputMessage.Message = value;
+                    messageFormat = value;
                 }
                 else
                 {
                     outputMessage.PayloadNames.Add(key);
                     outputMessage.Payload.Add(value);
+                    messageArgs.Add(key, value);
                 }
             }
 
-            return outputMessage;
+            if (messageFormat != null)
+            {
+                outputMessage.Message = LogValuesFormatter.Format(messageFormat, messageArgs);
+            }
+
+            _ = Task.Run(() => OnEventWritten?.Invoke(outputMessage));
         }
 
         private EventLevel MapLogLevel(long inputLogLevel)
@@ -185,6 +224,20 @@ namespace Microsoft.Diagnostics.Client
                 return EventLevel.LogAlways;
             }
             return _mappingArray[inputLogLevel];
+        }
+
+        private EnableEventsRequest CreateCounterRequest(string providerName)
+        {
+            return new EnableEventsRequest(
+                providerName, EventLevel.Informational, EventKeywords.All, new Dictionary<string, string>()
+                {
+                    { "EventCounterIntervalSec", "1" }
+                });
+        }
+
+        private string GenerateFilterSpec(IEnumerable<string> loggers)
+        {
+            return string.Join(";", loggers.Select(l => $"{l}"));
         }
     }
 }
