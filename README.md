@@ -57,6 +57,10 @@ The [SampleMonitoredApp](samples/SampleMonitoredApp) sample provides a simple UI
 
 ![SampleMonitoredApp](docs/MonitoredApp.png)
 
+On startup, a Named Pipe is created based on the process ID (the PID in the below example doesn't match the one above because it was taken at a different time and I'm lazy ;), ditto some of the `dotnet-trace` commands below...)
+
+![Diagnostic Pipe](docs/DiagPipe.png)
+
 For example, to collect from an EventSource, use the `--provider` option to specify each provider:
 
 ![Collecting from an EventSource](docs/CollectingFromEventSource.png)
