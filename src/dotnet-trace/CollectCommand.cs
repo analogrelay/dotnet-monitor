@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using System.Linq;
@@ -76,7 +77,16 @@ namespace Microsoft.Diagnostics.Tools.Trace
 
             if (Providers != null && Providers.Any())
             {
-                await client.EnableEventsAsync(Providers.Select(p => new EnableEventsRequest(p, EventLevel.Verbose, EventKeywords.All)));
+                var requests = new List<EnableEventsRequest>(Providers.Count);
+                foreach (var p in Providers)
+                {
+                    if (!TryCreateEventRequest(console, p, out var request))
+                    {
+                        return 1;
+                    }
+                    requests.Add(request);
+                }
+                await client.EnableEventsAsync(requests);
                 enabledSomething = true;
             }
 
@@ -90,6 +100,129 @@ namespace Microsoft.Diagnostics.Tools.Trace
             await CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, disconnectCts.Token).WaitForCancellationAsync();
 
             return 0;
+        }
+
+        private bool TryCreateEventRequest(IConsole console, string providerString, out EnableEventsRequest request)
+        {
+            // Format:
+            //  provider[:level[:keywords]]
+
+            var splat = providerString.Split(':');
+            var level = EventLevel.Informational;
+            var keywords = EventKeywords.All;
+            var provider = splat[0].Trim();
+            if (splat.Length > 1)
+            {
+                if (!Enum.TryParse(splat[1].Trim(), out level))
+                {
+                    console.Error.WriteLine($"Invalid event level '{splat[1]}'. Expected one of: {string.Join(", ", Enum.GetValues(typeof(EventLevel)))}");
+                    request = null;
+                    return false;
+                }
+
+                if (splat.Length > 2)
+                {
+                    if (!TryParseKeywords(splat[2].Trim(), provider, out keywords))
+                    {
+                        request = null;
+                        return false;
+                    }
+                }
+            }
+
+            request = new EnableEventsRequest(provider, level, keywords);
+            return true;
+        }
+
+        private bool TryParseKeywords(string input, string provider, out EventKeywords keywords)
+        {
+            var segments = input.Split("|");
+            keywords = 0;
+            foreach (var segment in segments)
+            {
+                if (!TryParseKeywordSegment(segment, provider, out var keyword))
+                {
+                    keywords = EventKeywords.All;
+                    return false;
+                }
+                keywords |= keyword;
+            }
+
+            return true;
+        }
+
+        private Dictionary<string, Dictionary<string, EventKeywords>> _namedKeywords = new Dictionary<string, Dictionary<string, EventKeywords>>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Known keywords indexed by Provider name and keyword
+            {
+                // Source: https://docs.microsoft.com/en-us/dotnet/framework/performance/clr-etw-keywords-and-levels
+                "Microsoft-Windows-DotNETRuntime",
+                new Dictionary<string, EventKeywords>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "GC", (EventKeywords)0x00000001 },
+                    { "Loader", (EventKeywords)0x00000008 },
+                    { "JIT", (EventKeywords)0x00000010 },
+                    { "NGen", (EventKeywords)0x00000020 },
+                    { "StartEnumeration", (EventKeywords)0x00000040 },
+                    { "EndEnumeration", (EventKeywords)0x00000080 },
+                    { "Security", (EventKeywords)0x00000400 },
+                    { "AppDomainResourceManagement", (EventKeywords)0x00000800 },
+                    { "JITTracing", (EventKeywords)0x00001000 },
+                    { "Interop", (EventKeywords)0x00002000 },
+                    { "Contention", (EventKeywords)0x00004000 },
+                    { "Exception", (EventKeywords)0x00008000 },
+                    { "Threading", (EventKeywords)0x00010000 },
+                    { "OverrideAndSuppressNGenEvents", (EventKeywords)0x00040000 },
+                    { "PerfTrack", (EventKeywords)0x02000000 },
+                    { "Stack", (EventKeywords)0x40000000 },
+                }
+            }
+        };
+        private bool TryParseKeywordSegment(string segment, string provider, out EventKeywords keyword)
+        {
+            if (segment.StartsWith("0x"))
+            {
+                var chars = segment.AsSpan(2);
+                var val = 0;
+                for(var i = 0; i < chars.Length; i++)
+                {
+                    val = (val << 4) + FromHexChar(chars[i]);
+                }
+            }
+            else if(int.TryParse(segment, out var intVal))
+            {
+                keyword = (EventKeywords)intVal;
+                return true;
+            }
+            else if(_namedKeywords.TryGetValue(provider, out var providerKeywords) &&
+                (providerKeywords.TryGetValue(segment, out keyword) ||
+                 providerKeywords.TryGetValue($"{segment}Keyword", out keyword)))
+            {
+                return true;
+            }
+
+            keyword = 0;
+            return false;
+        }
+
+        private int FromHexChar(char v)
+        {
+            if(v >= '0' && v <= '9')
+            {
+                return v - '0';
+            }
+            else if(v >= 'a' && v <= 'f')
+            {
+                return 0x0A + (v - 'a');
+            }
+            else if(v >= 'A' && v <= 'F')
+            {
+                return 0x0A + (v - 'A');
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid hex character: {v}");
+            }
         }
     }
 }

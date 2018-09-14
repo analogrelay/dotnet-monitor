@@ -22,6 +22,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Diagnostics.Serve
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Diagnostics.Client", "src\Microsoft.Diagnostics.Client\Microsoft.Diagnostics.Client.csproj", "{820A83F4-832E-4984-9E43-C631C356A004}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleWebApp", "samples\SampleWebApp\SampleWebApp.csproj", "{993C97DD-A837-4C8B-97DA-6F11AD797485}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{820A83F4-832E-4984-9E43-C631C356A004}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{820A83F4-832E-4984-9E43-C631C356A004}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{820A83F4-832E-4984-9E43-C631C356A004}.Release|Any CPU.Build.0 = Release|Any CPU
+		{993C97DD-A837-4C8B-97DA-6F11AD797485}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{993C97DD-A837-4C8B-97DA-6F11AD797485}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{993C97DD-A837-4C8B-97DA-6F11AD797485}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{993C97DD-A837-4C8B-97DA-6F11AD797485}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -58,6 +64,7 @@ Global
 		{A5C10E59-5B55-4445-A939-A0AA0E156EC6} = {A9AE5A6B-48A3-424D-BD94-1A7E10921551}
 		{B140A95D-4488-4AD9-9F29-AD321B558D01} = {A9AE5A6B-48A3-424D-BD94-1A7E10921551}
 		{820A83F4-832E-4984-9E43-C631C356A004} = {A9AE5A6B-48A3-424D-BD94-1A7E10921551}
+		{993C97DD-A837-4C8B-97DA-6F11AD797485} = {2AB63881-E835-4F6C-9362-4A16156A3F2D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0491437C-33E9-4E6E-967C-65A7875110CE}
