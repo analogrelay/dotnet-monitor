@@ -2,11 +2,9 @@ using System;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Internal.Utilities;
 
-namespace Microsoft.Diagnostics.Tools.Trace
+namespace Microsoft.Diagnostics.Tools.Analyze
 {
-    [Command(Name = "dotnet-trace", Description = "Collects event traces from .NET processes")]
-    [Subcommand(SourcesCommand.Name, typeof(SourcesCommand))]
-    [Subcommand(CollectCommand.Name, typeof(CollectCommand))]
+    [Command(Name = "dotnet-analyze", Description = "Analyzes a crash dump for known issues")]
     internal class Program
     {
         private static int Main(string[] args)
@@ -23,9 +21,9 @@ namespace Microsoft.Diagnostics.Tools.Trace
             }
         }
 
-        public int OnExecute(CommandLineApplication app)
+        public int OnExecute(IConsole console, CommandLineApplication app)
         {
-            app.ShowHelp();
+            console.WriteLine("You seem to have had a bad problem and will not go to space today.");
             return 0;
         }
     }

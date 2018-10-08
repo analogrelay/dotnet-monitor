@@ -1,15 +1,14 @@
 using System;
 using System.Threading;
-using McMaster.Extensions.CommandLineUtils;
 
-namespace Microsoft.Diagnostics.Tools.Trace
+namespace Microsoft.Internal.Utilities
 {
     public static class ConsoleCancellationExtensions
     {
-        public static CancellationToken GetCtrlCToken(this IConsole console)
+        public static CancellationToken GetCtrlCToken()
         {
             var cts = new CancellationTokenSource();
-            console.CancelKeyPress += (sender, args) =>
+            Console.CancelKeyPress += (sender, args) =>
             {
                 if (cts.IsCancellationRequested)
                 {

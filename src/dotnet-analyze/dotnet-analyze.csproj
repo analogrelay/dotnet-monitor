@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.2</TargetFramework>
-    <RootNamespace>Microsoft.Diagnostics.Tools.Trace</RootNamespace>
+    <RootNamespace>Microsoft.Diagnostics.Tools.Analyze</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,10 +13,6 @@
 
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.2.5" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Diagnostics.Client\Microsoft.Diagnostics.Client.csproj" />
   </ItemGroup>
 
 </Project>
