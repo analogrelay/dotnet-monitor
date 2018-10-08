@@ -2,7 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
+
+    <!-- CLRMD is .NET Framework only currently. See https://github.com/Microsoft/clrmd/issues/122 -->
+    <TargetFramework>net461</TargetFramework>
+
     <RootNamespace>Microsoft.Diagnostics.Tools.Analyze</RootNamespace>
   </PropertyGroup>
 
@@ -13,6 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.2.5" />
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" Version="0.9.180305.01" />
   </ItemGroup>
 
 </Project>
