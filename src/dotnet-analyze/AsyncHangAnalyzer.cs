@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Diagnostics.Runtime;
@@ -7,6 +6,9 @@ namespace Microsoft.Diagnostics.Tools.Analyze
 {
     internal class AsyncHangAnalyzer
     {
+        private const string AsyncStateMachineBoxTypeName = "System.Runtime.CompilerServices.AsyncTaskMethodBuilder+AsyncStateMachineBox<";
+        private const string DebugFinalizableBoxTypeName = "System.Runtime.CompilerServices.AsyncTaskMethodBuilder+DebugFinalizableAsyncStateMachineBox<";
+
         internal const int TASK_STATE_STARTED = 0x10000;                                       //bin: 0000 0000 0000 0001 0000 0000 0000 0000
         internal const int TASK_STATE_DELEGATE_INVOKED = 0x20000;                              //bin: 0000 0000 0000 0010 0000 0000 0000 0000
         internal const int TASK_STATE_DISPOSED = 0x40000;                                      //bin: 0000 0000 0000 0100 0000 0000 0000 0000
@@ -25,24 +27,60 @@ namespace Microsoft.Diagnostics.Tools.Analyze
 
         public static void Run(IConsole console, ClrRuntime runtime)
         {
-            // Collect all tasks
-            var waitingTasks = new List<(ClrObject, TaskStatus)>();
+            // Collect all state machines
             foreach (var obj in runtime.Heap.EnumerateObjects())
             {
-                if (obj.Type.IsDerivedFrom("System.Threading.Tasks.Task"))
+                // Skip non-matching types
+                if (!obj.Type.Name.StartsWith(AsyncStateMachineBoxTypeName) && !obj.Type.Name.StartsWith(DebugFinalizableBoxTypeName))
                 {
-                    var state = obj.GetField<int>("m_stateFlags");
-                    var status = ToTaskStatus(state);
-                    if (status != TaskStatus.Faulted && status != TaskStatus.Canceled && status != TaskStatus.RanToCompletion)
+                    continue;
+                }
+
+                // Get the status of the task
+                var taskState = obj.GetField<int>("m_stateFlags");
+                var taskStatus = ToTaskStatus(taskState);
+
+                if(taskStatus == TaskStatus.Canceled || taskStatus == TaskStatus.Faulted || taskStatus == TaskStatus.RanToCompletion)
+                {
+                    continue;
+                }
+
+                // Get the state machine field
+                var field = obj.Type.GetFieldByName("StateMachine");
+
+                // Get address and method table
+                if (field.ElementType == ClrElementType.Struct)
+                {
+                    var stateMachine = obj.GetValueClassField("StateMachine");
+
+                    // Exclude Microsoft/System state machines
+                    if (stateMachine.Type.Name.StartsWith("System") || stateMachine.Type.Name.StartsWith("Microsoft"))
                     {
-                        waitingTasks.Add((obj, status));
+                        continue;
+                    }
+
+                    console.WriteLine($"StateMachine: {stateMachine.Type.Name} struct 0x{stateMachine.Type.MethodTable:X}");
+                    foreach (var stateMachineField in stateMachine.Type.Fields)
+                    {
+                        console.WriteLine($"  {stateMachineField.Name}: {stateMachineField.GetDisplayValue(stateMachine)}");
                     }
                 }
-            }
+                else
+                {
+                    var stateMachine = obj.GetObjectField("StateMachine");
 
-            foreach (var (task, status) in waitingTasks)
-            {
-                console.WriteLine($"* {task.Type.Name} - {status}");
+                    // Exclude Microsoft/System state machines
+                    if (stateMachine.Type.Name.StartsWith("System") || stateMachine.Type.Name.StartsWith("Microsoft"))
+                    {
+                        continue;
+                    }
+
+                    console.WriteLine($"StateMachine: {stateMachine.Type.Name} class 0x{stateMachine.Type.MethodTable:X}");
+                    foreach (var stateMachineField in stateMachine.Type.Fields)
+                    {
+                        console.WriteLine($"  {stateMachineField.Name}: {stateMachineField.GetDisplayValue(stateMachine)}");
+                    }
+                }
             }
         }
 
