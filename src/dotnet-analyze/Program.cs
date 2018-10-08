@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using McMaster.Extensions.CommandLineUtils;
+using Microsoft.Diagnostics.Runtime;
 using Microsoft.Internal.Utilities;
 
 namespace Microsoft.Diagnostics.Tools.Analyze
@@ -11,12 +12,52 @@ namespace Microsoft.Diagnostics.Tools.Analyze
         [FileExists(ErrorMessage = "The dump file could not be found.")]
         [Required(ErrorMessage = "You must provide a dump file to be analyzed.")]
         [Argument(0, "<DUMP>", Description = "The path to the dump file to analyze.")]
-        public string DumpPath { get; set;}
+        public string DumpPath { get; set; }
 
         public int OnExecute(IConsole console, CommandLineApplication app)
         {
-            console.WriteLine("You seem to have had a bad problem and will not go to space today.");
+            // Load the dump
+            console.WriteLine($"Loading crash dump {DumpPath}...");
+            using (var target = DataTarget.LoadCrashDump(DumpPath))
+            {
+                console.WriteLine("CLR Versions:");
+                foreach (var clr in target.ClrVersions)
+                {
+                    console.WriteLine($"  {GetFlavorName(clr.Flavor)}: {clr.Version}");
+                }
+
+                // Assume there's only one
+                if(target.ClrVersions.Count > 1)
+                {
+                    console.Error.WriteLine("Multiple CLR versions are present, select one to analyze with (TODO).");
+                    return 1;
+                }
+
+                var runtime = target.ClrVersions[0].CreateRuntime();
+
+                // Run analyzers
+                AsyncHangAnalyzer.Run(console, runtime);
+            }
             return 0;
+        }
+
+        private string GetFlavorName(ClrFlavor flavor)
+        {
+#pragma warning disable 0612, 0618
+            switch (flavor)
+            {
+                case ClrFlavor.Desktop:
+                    return ".NET Framework";
+                case ClrFlavor.CoreCLR:
+                    return "Silverlight";
+                case ClrFlavor.Native:
+                    return ".NET Native";
+                case ClrFlavor.Core:
+                    return ".NET Core";
+                default:
+                    return "Unknown CLR";
+            }
+#pragma warning restore 0612, 0618
         }
 
         private static int Main(string[] args)

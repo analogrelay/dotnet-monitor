@@ -38,6 +38,9 @@ namespace SampleWebApp
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
+            // Set up an "async hang" in the background
+            _ = AsyncHang();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -53,6 +56,12 @@ namespace SampleWebApp
             app.UseCookiePolicy();
 
             app.UseMvc();
+        }
+
+        private async Task AsyncHang()
+        {
+            var tcs = new TaskCompletionSource<object>();
+            await tcs.Task;
         }
     }
 }
